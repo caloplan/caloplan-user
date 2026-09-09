@@ -10,14 +10,18 @@ export type {
   PaginatedUsers,
 } from "./model/index.js";
 
-// 用户身体指标
+// 用户身体指标（按天记录）
 export type {
   UserBodyProfile,
-  SaveUserBodyParams,
+  CreateUserBodyParams,
+  UpdateUserBodyParams,
+  ListUserBodyParams,
 } from "./model/index.js";
 
-// 用户营养目标
+// 用户营养目标（按天记录）
 export type {
   UserNutritionGoal,
-  SaveUserNutritionParams,
+  CreateUserNutritionParams,
+  UpdateUserNutritionParams,
+  ListUserNutritionParams,
 } from "./model/index.js";

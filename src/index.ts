@@ -10,16 +10,20 @@ export type {
   PaginatedUsers,
 } from "./core/index.js";
 
-// 用户身体指标（snake_case）
+// 用户身体指标（按天记录，snake_case）
 export type {
   UserBodyProfile,
-  SaveUserBodyParams,
+  CreateUserBodyParams,
+  UpdateUserBodyParams,
+  ListUserBodyParams,
 } from "./core/index.js";
 
-// 用户营养目标（snake_case）
+// 用户营养目标（按天记录，snake_case）
 export type {
   UserNutritionGoal,
-  SaveUserNutritionParams,
+  CreateUserNutritionParams,
+  UpdateUserNutritionParams,
+  ListUserNutritionParams,
 } from "./core/index.js";
 
 // UserService：CaloPlan 层面的用户业务封装（基于 UserSDK）

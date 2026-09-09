@@ -1,130 +1,208 @@
 # caloplan-user
 
-CaloPlan 用户模块 — 封装 UserSDK 与 MetaSDK，提供 CaloPlan 层面的用户业务能力。
+CaloPlan 用户模块 — 封装 UserSDK（认证/用户信息）与 MetaSDK（身体指标/营养目标存储）的业务层用户能力。
 
-## 模块定位
-
-caloplan-user 是 CaloPlan 模块化架构中的用户业务模块：
+## 架构
 
 ```
-caloplan-user  ← 本模块（业务层封装）
-   ├── UserSDK    ← 外部注入，负责 HTTP / JWT / token 生命周期 / 用户认证
-   └── MetaSDK    ← 外部注入，负责用户身体指标、营养目标等业务数据存储（含版本历史）
+caloplan-user
+├── UserService          ← 封装 UserSDK（认证 + 用户基础信息）
+├── UserBodyRespository  ← 封装 MetaSDK（用户身体指标，按天记录）
+├── UserNutritionRespository ← 封装 MetaSDK（用户营养目标，按天记录）
+└── CPUserFactory        ← 组装以上三者
 ```
 
-### 职责边界
-
-- **封装 UserSDK**，提供 CaloPlan 风格（snake_case）的用户认证与基础信息 API
-- **封装 MetaSDK**，提供用户身体指标、营养目标的存储与历史版本能力
-- **不重复实现** User Service / JWT / token 生命周期逻辑，这些由 UserSDK 负责
+- **不重复实现** User Service / JWT / token 生命周期，这些由 UserSDK 负责
 - **不直接处理 HTTP**
-- **不自行创建 SDK**，从统一单例依赖注册中获取已初始化的实例
-- **不引入额外 DI 框架**或复杂抽象
+- **不自行创建** UserSDK / MetaSDK / Cache，从统一单例依赖注册中获取
+- **不引入**额外 DI 框架或复杂抽象
 
-## 文件结构
+## 依赖关系
 
 ```
-caloplan-user/
-├── .gitignore
-├── package.json
-├── tsconfig.json
-├── tsconfig.build.json
-└── src/
-    ├── core/
-    │   ├── index.ts                          # 领域模型聚合导出
-    │   └── model/
-    │       ├── index.ts
-    │       ├── user.ts                       # UserProfile / AuthTokens / 参数类型
-    │       ├── user-body.ts                  # UserBodyProfile / SaveUserBodyParams
-    │       └── user-nutrition.ts             # UserNutritionGoal / SaveUserNutritionParams
-    ├── sdk/
-    │   ├── user-sdk/
-    │   │   ├── index.ts
-    │   │   └── types/
-    │   │       ├── index.ts
-    │   │       ├── auth.ts                   # RegisterContract / TokenResponseContract
-    │   │       ├── user.ts                   # UserResponseContract / UpdateUserContract 等
-    │   │       └── contract.ts               # UserSdkLike / UserSdkAuthClient / UserSdkUsersClient
-    │   └── meta-sdk/
-    │       ├── index.ts
-    │       └── types/
-    │           ├── index.ts
-    │           ├── common.ts                 # PaginatedResponse / PaginationParams
-    │           ├── entry.ts                  # MetadataEntry / MetadataVersion / 参数类型
-    │           └── contract.ts               # MetaSdkLike / EntriesClient（含历史版本方法）
-    ├── service/
-    │   ├── type.ts                           # isNotFoundError 重新导出
-    │   ├── UserService.ts                    # 用户认证与基础信息（基于 UserSDK）
-    │   └── UserService.test.ts
-    ├── repository/
-    │   ├── type.ts                           # UserIdProvider / isNotFoundError
-    │   ├── CPUserFactory.ts                  # 工厂：组装 UserService + 两个 Repository
-    │   ├── user-body/
-    │   │   ├── UserBodyRespository.ts        # 用户身体指标存储（含历史版本）
-    │   │   └── UserBodyRespository.test.ts
-    │   └── user-nutrition/
-    │       ├── UserNutritionRespository.ts   # 用户营养目标存储（含历史版本）
-    │       └── UserNutritionRespository.test.ts
-    ├── cpuser.ts                             # 单例：createCPUser() / getCPUser()
-    └── index.ts                              # 包入口，按段聚合导出
+caloplan-user
+    ↓
+  UserSDK
+    ↓
+User Service
+
+caloplan-user
+    ↓
+  MetaSDK
+    ↓
+Meta Storage
 ```
 
-## 架构分层
+## 安装
 
-| 层 | 职责 | 命名风格 |
-|---|---|---|
-| `core/model` | CaloPlan 领域模型（纯类型，无逻辑） | `snake_case`：`user_id`、`created_time` |
-| `sdk/user-sdk/types` | UserSDK 类型契约（仅类型，无实现） | `camelCase`：`userId`、`createdAt` |
-| `sdk/meta-sdk/types` | MetaSDK 类型契约（仅类型，无实现） | `camelCase`：`userId`、`createdAt` |
-| `service/UserService` | 用户认证与基础信息，组合 UserSDK | 方法名业务语义：`login`、`getCurrentUser` |
-| `repository/*` | 用户业务数据存储，组合 MetaSDK | 方法名业务语义：`getMine`、`save`、`listHistory` |
-| `cpuser.ts` | 单例注册，SDK 外部注入 | `createCPUser` / `getCPUser` |
+```bash
+pnpm add caloplan-user
+```
 
-### 设计约束
+## 快速开始
 
-- 不 `new UserSDK` / `new MetaSDK`，实例由上层统一初始化并注入
-- 不实现 JWT / token 生命周期，由 UserSDK 负责，本模块仅透传 `AuthTokens`
-- 不直接处理 HTTP
-- 不引入额外 DI 框架
-- 错误用 `isNotFoundError`（`statusCode === 404`），不依赖 SDK 具体错误类
-- 数据转换集中在 Service / Repository 内部：CaloPlan 领域（snake_case）↔ SDK 契约（camelCase）
-- 用户身体指标与营养目标为**用户单例数据**，`entityKey` 使用 `user_id`
+```typescript
+import { createCPUser, getCPUser } from "caloplan-user";
+import type { UserSdkLike, MetaSdkLike } from "caloplan-user";
 
-## 领域模型（snake_case）
+// 从统一单例依赖注册中获取已初始化的 SDK
+const userSdk: UserSdkLike = getSingletonUserSdk();
+const metaSdk: MetaSdkLike = getSingletonMetaSdk();
 
-### UserProfile — 用户基础信息
+// 初始化 caloplan-user 单例
+createCPUser(userSdk, metaSdk, () => getCurrentUserId());
+
+// 获取使用
+const cp = getCPUser();
+
+// 用户认证
+const tokens = await cp.user.login({ email: "a@b.com", password: "123456" });
+const user = await cp.user.getCurrentUser();
+
+// 身体指标（按天记录）
+const body = await cp.body.create({ age: 25, height: 180, weight: 75 });
+const todayBody = await cp.body.getByDate("2026-09-09");
+await cp.body.update({ id: body.id, weight: 74 });
+
+// 营养目标（按天记录）
+const nutrition = await cp.nutrition.create({
+  carbon: 250, protein: 150, fat: 60, salt: 5, calorie: 2000,
+});
+const weekNutrition = await cp.nutrition.listMine({
+  start_date: "2026-09-01",
+  end_date: "2026-09-07",
+});
+```
+
+## API
+
+### UserService
+
+封装 UserSDK，提供 CaloPlan 层面的用户能力。领域模型使用 **snake_case**。
+
+| 方法 | 说明 |
+| --- | --- |
+| `login(params: LoginParams): Promise<AuthTokens>` | 用户登录 |
+| `register(params: RegisterParams): Promise<AuthTokens>` | 用户注册 |
+| `logout(): Promise<void>` | 登出 |
+| `refreshToken(): Promise<AuthTokens>` | 刷新 token |
+| `getCurrentUser(): Promise<UserProfile>` | 获取当前用户 |
+| `updateProfile(params: UpdateProfileParams): Promise<UserProfile>` | 更新用户基础信息 |
+| `changePassword(params: ChangePasswordParams): Promise<void>` | 修改密码 |
+| `deleteAccount(): Promise<void>` | 注销账号 |
+| `getUserById(userId: string): Promise<UserProfile \| null>` | 按 ID 查询用户 |
+| `listUsers(params?: ListUsersParams): Promise<PaginatedUsers>` | 分页查询用户列表 |
+
+**领域模型（snake_case）：**
 
 ```typescript
 interface UserProfile {
-  user_id: number;
-  username: string;
+  user_id: string;
   email: string;
-  full_name: string | null;
-  service_name: string;
-  role: string;
+  username: string | null;
+  nickname: string | null;
+  avatar_url: string | null;
   created_time: string;
   updated_time: string | null;
 }
+
+interface AuthTokens {
+  access_token: string;
+  refresh_token: string;
+  token_type: string;
+  expires_in: number;
+}
 ```
 
-### UserBodyProfile — 用户身体指标
+### 数据分层（raw data vs meta 字段）
+
+身体指标和营养目标的存储严格区分两类字段：
+
+| 类别 | 字段 | 存储位置 | 说明 |
+| --- | --- | --- | --- |
+| **raw data**（业务字段） | `date`、`age`、`height`、`weight` / `carbon`、`protein`、`fat`、`salt`、`calorie` | `MetaSDK entry.data` | 严格对齐 entity schema，只存业务字段 |
+| **meta 字段**（元数据） | `id`、`user_id`、`created_time`、`updated_time` | `MetaSDK entry` 元数据 | 从 `entityKey` / `ownerUserId` / `createdAt` / `updatedAt` 取，不存入 data |
+
+**用户过滤**使用 MetaSDK 原生的 `ownerUserId` 参数，不在 data 中存 `user_id` 字段。
+
+### UserBodyRespository
+
+用户身体指标仓储，基于 MetaSDK 存储。**用户按天记录**，entityKey 使用独立 id（nanoid）。
+
+| 方法 | 说明 |
+| --- | --- |
+| `create(params: CreateUserBodyParams): Promise<UserBodyProfile>` | 创建身体指标记录（date 不传默认当天） |
+| `getById(id: string): Promise<UserBodyProfile \| null>` | 按 id 查询 |
+| `getByDate(date: string): Promise<UserBodyProfile \| null>` | 按日期查询当前用户的记录 |
+| `update(params: UpdateUserBodyParams): Promise<UserBodyProfile>` | 按 id 更新（仅传变更字段） |
+| `delete(id: string): Promise<void>` | 按 id 删除 |
+| `listMine(params?: ListUserBodyParams): Promise<{ total, items }>` | 查询当前用户的记录列表（支持时间范围） |
+| `listHistory(id, params?): Promise<{ total, items }>` | 获取指定记录的历史版本列表 |
+| `getByVersion(id, version): Promise<UserBodyProfile \| null>` | 获取指定记录的指定历史版本 |
+| `rollback(id, version): Promise<UserBodyProfile>` | 回滚指定记录到指定版本 |
+
+**领域模型（snake_case）：**
 
 ```typescript
 interface UserBodyProfile {
+  id: string;              // nanoid
   user_id: string;
+  date: string;            // YYYY-MM-DD
   age: number;
   height: number;
   weight: number;
   created_time: string;
   updated_time: string | null;
 }
+
+interface CreateUserBodyParams {
+  date?: string;           // 不传默认当天
+  age: number;
+  height: number;
+  weight: number;
+}
+
+interface UpdateUserBodyParams {
+  id: string;
+  age?: number;
+  height?: number;
+  weight?: number;
+}
+
+interface ListUserBodyParams {
+  date?: string;           // 精确匹配某一天
+  start_date?: string;     // 时间范围（含边界）
+  end_date?: string;
+  page?: number;
+  pageSize?: number;
+}
 ```
 
-### UserNutritionGoal — 用户营养目标
+**时间范围查询实现：** MetaSDK 的 `field_filters` 只支持精确匹配，不支持范围查询。`listMine` 的时间范围查询采用「`createdAfter/createdBefore` 缩小查询范围 + 内存按 `date` 精确过滤」的策略，确保范围准确。
+
+### UserNutritionRespository
+
+用户营养目标仓储，基于 MetaSDK 存储。**用户按天记录**，entityKey 使用独立 id（nanoid）。
+
+| 方法 | 说明 |
+| --- | --- |
+| `create(params: CreateUserNutritionParams): Promise<UserNutritionGoal>` | 创建营养目标记录（date 不传默认当天） |
+| `getById(id: string): Promise<UserNutritionGoal \| null>` | 按 id 查询 |
+| `getByDate(date: string): Promise<UserNutritionGoal \| null>` | 按日期查询当前用户的记录 |
+| `update(params: UpdateUserNutritionParams): Promise<UserNutritionGoal>` | 按 id 更新（仅传变更字段） |
+| `delete(id: string): Promise<void>` | 按 id 删除 |
+| `listMine(params?: ListUserNutritionParams): Promise<{ total, items }>` | 查询当前用户的记录列表（支持时间范围） |
+| `listHistory(id, params?): Promise<{ total, items }>` | 获取指定记录的历史版本列表 |
+| `getByVersion(id, version): Promise<UserNutritionGoal \| null>` | 获取指定记录的指定历史版本 |
+| `rollback(id, version): Promise<UserNutritionGoal>` | 回滚指定记录到指定版本 |
+
+**领域模型（snake_case）：**
 
 ```typescript
 interface UserNutritionGoal {
+  id: string;              // nanoid
   user_id: string;
+  date: string;            // YYYY-MM-DD
   carbon: number;
   protein: number;
   fat: number;
@@ -133,168 +211,171 @@ interface UserNutritionGoal {
   created_time: string;
   updated_time: string | null;
 }
-```
 
-### AuthTokens — 认证令牌对
+interface CreateUserNutritionParams {
+  date?: string;           // 不传默认当天
+  carbon: number;
+  protein: number;
+  fat: number;
+  salt: number;
+  calorie: number;
+}
 
-```typescript
-interface AuthTokens {
-  access_token: string;
-  refresh_token: string;
-  token_type: string;
+interface UpdateUserNutritionParams {
+  id: string;
+  carbon?: number;
+  protein?: number;
+  fat?: number;
+  salt?: number;
+  calorie?: number;
+}
+
+interface ListUserNutritionParams {
+  date?: string;           // 精确匹配某一天
+  start_date?: string;     // 时间范围（含边界）
+  end_date?: string;
+  page?: number;
+  pageSize?: number;
 }
 ```
 
-## API 使用示例
-
-### 1. 初始化（上层应用统一完成）
-
-```typescript
-import { createCPUser } from "caloplan-user";
-import type { UserSdkLike, MetaSdkLike, UserIdProvider } from "caloplan-user";
-
-// UserSDK 与 MetaSDK 由上层统一初始化（含 HTTP 客户端、token 管理等配置）
-const userSdk: UserSdkLike = { auth: userSdkAuthClient, users: userSdkUsersClient };
-const metaSdk: MetaSdkLike = { entries: metaSdkEntriesClient };
-
-// 登录态提供器：返回当前登录用户 ID（MetaSDK 仓储自动注入 user_id）
-const userIdProvider: UserIdProvider = () => currentUserId;
-
-// 注入并初始化单例
-createCPUser(userSdk, metaSdk, userIdProvider);
-```
-
-### 2. 用户认证与基础信息（cpUser.user）
-
-```typescript
-import { getCPUser } from "caloplan-user";
-
-const cpUser = getCPUser();
-
-// 登录
-const tokens = await cpUser.user.login({ username: "alice", password: "pass123" });
-
-// 注册
-const tokens = await cpUser.user.register({
-  username: "bob",
-  email: "bob@example.com",
-  password: "pass123",
-  full_name: "Bob Li",
-  service_name: "caloplan",
-});
-
-// 获取当前用户
-const user = await cpUser.user.getCurrentUser();
-
-// 更新用户资料（仅传变更字段）
-const updated = await cpUser.user.updateProfile({ full_name: "Alice New" });
-
-// 修改密码
-await cpUser.user.changePassword({ old_password: "old123", new_password: "new123" });
-
-// 登出
-await cpUser.user.logout();
-```
-
-### 3. 用户身体指标（cpUser.body）
-
-```typescript
-// 获取当前用户身体指标（不存在返回 null）
-const body = await cpUser.body.getMine();
-
-// 保存（upsert：已存在则更新，不存在则创建）
-const saved = await cpUser.body.save({ age: 25, height: 180, weight: 75 });
-
-// 删除（重置）
-await cpUser.body.delete();
-
-// 获取历史版本列表（按版本倒序，最新在前）
-const history = await cpUser.body.listHistory({ page: 1, pageSize: 20 });
-// history.total / history.items: UserBodyHistoryItem[]
-// history.items[0].version / .data / .created_time / .created_by_user_id
-
-// 获取指定历史版本
-const oldBody = await cpUser.body.getByVersion(1);
-
-// 回滚到指定版本（生成新版本，数据取回滚目标）
-const rolledBack = await cpUser.body.rollback(1);
-```
-
-### 4. 用户营养目标（cpUser.nutrition）
-
-```typescript
-// 获取当前用户营养目标（不存在返回 null）
-const goal = await cpUser.nutrition.getMine();
-
-// 保存（upsert）
-const saved = await cpUser.nutrition.save({
-  carbon: 250,
-  protein: 150,
-  fat: 60,
-  salt: 5,
-  calorie: 2000,
-});
-
-// 删除（重置）
-await cpUser.nutrition.delete();
-
-// 历史版本（同身体指标）
-const history = await cpUser.nutrition.listHistory();
-const oldGoal = await cpUser.nutrition.getByVersion(1);
-const rolledBack = await cpUser.nutrition.rollback(1);
-```
-
-## 历史版本能力
-
-基于 MetaSDK 自带的版本历史能力，用户身体指标与营养目标均支持：
-
-| 方法 | 说明 |
-|---|---|
-| `listHistory(params?)` | 获取历史版本列表，支持分页（`page` / `pageSize`），按版本倒序 |
-| `getByVersion(version)` | 获取指定版本的数据快照，不存在返回 null |
-| `rollback(version)` | 回滚到指定版本（生成新版本，数据取回滚目标，不删除历史） |
-
-历史版本项结构：
+**历史版本项：**
 
 ```typescript
 interface UserBodyHistoryItem {
   version: number;
-  data: UserBodyProfile;       // 该版本的 snake_case 数据
+  data: UserBodyProfile;
+  created_time: string;
+  created_by_user_id: number;
+}
+
+interface UserNutritionHistoryItem {
+  version: number;
+  data: UserNutritionGoal;
   created_time: string;
   created_by_user_id: number;
 }
 ```
 
-## 开发命令
+## 单例
 
-```bash
-# 类型检查
-npm run typecheck
+```typescript
+import { createCPUser, getCPUser } from "caloplan-user";
 
-# 运行测试
-npm test
+// 初始化（应用启动时调用一次）
+createCPUser(userSdk, metaSdk, userIdProvider);
 
-# 监听模式测试
-npm run test:watch
-
-# 构建
-npm run build
-
-# 清理构建产物
-npm run clean
+// 获取
+const cp = getCPUser();
+cp.user          // UserService
+cp.body          // UserBodyRespository
+cp.nutrition     // UserNutritionRespository
 ```
 
-## 验证结果
+`userIdProvider: () => string | null | Promise<string | null>` — 从当前登录态中解析用户 ID。无登录态时仓储层方法会抛错且不调用 SDK。
 
-- `npx tsc --noEmit` — 通过
-- `npx tsx --test "src/**/*.test.ts"` — 43 tests, 43 pass, 0 fail
-- `npx tsc -p tsconfig.build.json` — 构建通过
+## 常见使用场景
 
-### 测试覆盖
+### 场景 1：用户登录后初始化身体指标
 
-| 模块 | 用例数 | 覆盖点 |
-|---|---|---|
-| UserService | 17 | 登录/注册/登出/刷新令牌、当前用户 CRUD、修改密码、用户查询、单例 |
-| UserBodyRespository | 13 | getMine/404/错误透传、save 创建/更新、delete、无登录态、历史版本 listHistory/getByVersion/rollback |
-| UserNutritionRespository | 13 | 同 UserBodyRespository |
-| **合计** | **43** | |
+```typescript
+// 登录
+const tokens = await cp.user.login({ email, password });
+
+// 检查今天是否已有身体指标记录
+const todayBody = await cp.body.getByDate(today());
+
+if (!todayBody) {
+  // 今天还没有记录，创建一条
+  await cp.body.create({ age: 25, height: 180, weight: 75 });
+}
+```
+
+### 场景 2：更新当天的营养目标
+
+```typescript
+// 获取当天的营养目标
+const todayNutrition = await cp.nutrition.getByDate(today());
+
+if (todayNutrition) {
+  // 更新卡路里目标（仅传变更字段）
+  await cp.nutrition.update({ id: todayNutrition.id, calorie: 2100 });
+} else {
+  // 当天还没有记录，创建
+  await cp.nutrition.create({ carbon: 250, protein: 150, fat: 60, salt: 5, calorie: 2100 });
+}
+```
+
+### 场景 3：查询一周的身体数据趋势
+
+```typescript
+const weekBody = await cp.body.listMine({
+  start_date: "2026-09-01",
+  end_date: "2026-09-07",
+});
+
+// 按日期排序
+weekBody.items.sort((a, b) => a.date.localeCompare(b.date));
+
+// 计算平均体重
+const avgWeight = weekBody.items.reduce((sum, item) => sum + item.weight, 0) / weekBody.items.length;
+```
+
+### 场景 4：查看某条记录的修改历史并回滚
+
+```typescript
+// 获取历史版本列表
+const history = await cp.body.listHistory(recordId);
+
+// 查看某个历史版本的数据
+const oldVersion = await cp.body.getByVersion(recordId, 1);
+
+// 回滚到指定版本（生成新版本，不删除历史）
+const rolledBack = await cp.body.rollback(recordId, 1);
+```
+
+## 设计原则
+
+1. **业务层封装**：不简单把 UserSDK / MetaSDK API 原样暴露，而是根据 CaloPlan 领域模型设计接口
+2. **复用优先**：UserSDK 已支持的能力直接复用，不重新实现
+3. **token 管理留在 UserSDK**：caloplan-user 不管理 token 生命周期
+4. **缓存不写死**：Cache 通过统一注册获取，不在模块内硬编码缓存逻辑
+5. **不过度设计**：不为扩展性增加没有实际用途的 interface / factory / service 层
+6. **按天记录**：身体指标和营养目标支持按天记录与时间范围查询，entityKey 使用 nanoid 独立 id
+7. **create 唯一性上移业务层**：Repository 层纯 CRUD 不做每天一次的唯一性检查，由业务层接口限制
+
+## 开发
+
+```bash
+pnpm install
+pnpm typecheck   # TypeScript 类型检查
+pnpm test        # 运行测试
+pnpm build       # 构建
+```
+
+## 文件结构
+
+```
+src/
+├── core/
+│   ├── model/
+│   │   ├── user.ts            # UserProfile / AuthTokens 等
+│   │   ├── user-body.ts       # UserBodyProfile（按天记录）
+│   │   ├── user-nutrition.ts  # UserNutritionGoal（按天记录）
+│   │   └── index.ts
+│   └── index.ts
+├── sdk/
+│   ├── user-sdk/types/        # UserSDK 类型契约（camelCase）
+│   └── meta-sdk/types/        # MetaSDK 类型契约（camelCase）
+├── service/
+│   └── UserService.ts         # 用户认证与基础信息封装
+├── repository/
+│   ├── type.ts                # UserIdProvider + isNotFoundError
+│   ├── CPUserFactory.ts       # 组装 user/body/nutrition
+│   ├── user-body/
+│   │   └── UserBodyRespository.ts
+│   └── user-nutrition/
+│       └── UserNutritionRespository.ts
+├── cpuser.ts                  # 单例 createCPUser / getCPUser
+└── index.ts                   # 包入口
+```

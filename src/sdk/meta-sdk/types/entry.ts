@@ -33,6 +33,7 @@ export interface GetEntryOptions {
 export interface QueryEntriesParams extends PaginationParams {
   typeName?: string;
   serviceName?: string;
+  ownerUserId?: number;
   filters?: Record<string, unknown>;
   tags?: string[];
   sortBy?: string;
