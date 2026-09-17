@@ -1,6 +1,23 @@
 # caloplan-user
 
 CaloPlan 用户模块 — 封装 UserSDK（认证/用户信息）与 MetaSDK（身体指标/营养目标存储）的业务层用户能力。
+## 相关项目（CaloPlan 全家桶）
+
+CaloPlan 全栈项目统一托管在 GitHub Organization [caloplan](https://github.com/caloplan)：
+
+| 类型 | 项目 | 与本项目关系 |
+| --- | --- | --- |
+| 前端 | [coloplan-v2](https://github.com/caloplan/coloplan-v2) | 上层客户端：复用本模块的用户 / 身体 / 营养能力 |
+| SDK | [caloplan-core](https://github.com/caloplan/caloplan-core) | 餐食 / 食物模块（兄弟 SDK） |
+| SDK（本仓库） | [caloplan-user](https://github.com/caloplan/caloplan-user) | 用户认证与身体 / 营养目标模块 |
+| SDK | [caloplan-chat](https://github.com/caloplan/caloplan-chat) | AI 对话模块（兄弟 SDK） |
+| SDK | [caloplan-cache](https://github.com/caloplan/caloplan-cache) | 通用缓存（Token 持久化等） |
+| 服务 | [fastapi-chat-service](https://github.com/caloplan/fastapi-chat-service) | AI 对话后端（消费本服务 JWT） |
+| 服务 | [fastapi-file-service](https://github.com/caloplan/fastapi-file-service) | 图片上传后端（消费本服务 JWT） |
+| 服务 | [mservice-fastapi-user](https://github.com/caloplan/mservice-fastapi-user) | 认证 / 用户微服务（UserSDK 后端） |
+| 服务 | [mservice-fastapi-metastorage](https://github.com/caloplan/mservice-fastapi-metastorage) | 元数据微服务（身体 / 营养存储后端） |
+
+本模块经 UserSDK 对接 `mservice-fastapi-user`，经 MetaSDK 对接 `mservice-fastapi-metastorage`。
 
 ## 架构
 
