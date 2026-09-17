@@ -1,6 +1,7 @@
 # caloplan-user
 
 CaloPlan 用户模块 — 封装 UserSDK（认证/用户信息）与 MetaSDK（身体指标/营养目标存储）的业务层用户能力。
+
 ## 相关项目（CaloPlan 全家桶）
 
 CaloPlan 全栈项目统一托管在 GitHub Organization [caloplan](https://github.com/caloplan)：
